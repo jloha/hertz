@@ -76,6 +76,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/http1/factory"
 	"github.com/cloudwego/hertz/pkg/protocol/suite"
 	"github.com/cloudwego/hertz/pkg/route/param"
+	"net/http"
 )
 
 const unknownTransporterName = "unknown"
@@ -706,6 +707,44 @@ func printNode(node *node, level int) {
 	fmt.Printf("level: %#v\n\n", level)
 	for i := 0; i < len(node.children); i++ {
 		printNode(node.children[i], level+1)
+	}
+}
+
+type OuterRouter struct {
+	Method string `json:"method"`
+	Url    string `json:"url"`
+}
+
+func (engine *Engine) ExportAllRouter() []*OuterRouter {
+	methods := []string{
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+		http.MethodConnect,
+		http.MethodOptions,
+		http.MethodTrace,
+	}
+	res := make([]*OuterRouter, 0)
+	for _, method := range methods {
+		root := engine.trees.get(method)
+		exportLeaf(root.root, method, &res)
+	}
+	return res
+}
+
+func exportLeaf(node *node, method string, res *[]*OuterRouter) {
+	if node.isLeaf {
+		*res = append(*res, &OuterRouter{
+			Method: method,
+			Url:    node.ppath,
+		})
+		return
+	}
+	for i := 0; i < len(node.children); i++ {
+		exportLeaf(node.children[i], method, res)
 	}
 }
 
